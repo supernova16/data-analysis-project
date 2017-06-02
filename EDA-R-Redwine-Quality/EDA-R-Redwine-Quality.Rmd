@@ -176,7 +176,7 @@ ggplot(data = redwine,
 - 有一部分红酒中柠檬酸为 0 ，其余的红酒中柠檬酸的含量少于 0.75。
 - 大多数红酒的残留糖量在 1~3.5 间。
 - 大多数红酒的氯化物含量在 0.03~0.125 间。
-- 50％的红葡萄酒的密度约为0.996 g / cm3。最大密度为1.004g / cm3。
+- 50％的红葡萄酒的密度约为 0.996，最大密度为1.004。
 - 大多数红酒的 PH 值在 3~3.5 间。
 - 酒精的平均值为 10.42％，最大值 为14.9。
 - 硫酸盐的最大值为 2,最小值为 0.33。
@@ -334,7 +334,7 @@ grid.arrange(
 cor.test(log10(redwine$sulphates), redwine$quality)
 ```
 
-可以看到，进行 log 变幻后的硫酸盐，相关系数为 0.309，高于原始的 0.251；和红酒质量间存在较强的正相关。
+可以看到，进行 log 变换后的硫酸盐，相关系数为 0.309，高于原始的 0.251；和红酒质量间存在较强的正相关。
 
 
 
@@ -475,7 +475,7 @@ ggplot(aes(x = alcohol, y = citric.acid,color = factor(quality)),
 ```
 
 
-更高质量的红酒具有较高的柠檬酸。
+更高质量的红酒具有较高的柠檬酸，但相关性不是非常强。
 
 ### 线性模型
 
@@ -505,6 +505,7 @@ redwine_quality = 5.819 + 0.29*alcohol - 1.061*volatile.acidity + 1.864*log10(su
 
 
 # 总结
+
 
 ### 总结一：酒精对红酒质量的影响
 
@@ -548,17 +549,53 @@ grid.arrange(p1,p2,ncol=1)
 
 高质量的红酒倾向于具有较高的酒精含量和较低的挥发酸度含量，同时，也倾向于具有较高的硫酸盐和较高的柠檬酸含量。
 
+
+
+### 总结三：更好的红酒
+
+取`grade`中的两端等级来作图
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 ggplot(data = subset(redwine, grade != 'medium(5-6)'),
        aes(x = volatile.acidity, y = alcohol,
                       color = grade)) +
   geom_point() +
-  ggtitle('Alcohol vs. Volatile Acidity and Wine Quality') 
+  ggtitle('Alcohol vs Volatile Acidity and Wine Quality') 
 ```
 
+
 这张图可以明显地看出高酒精含量和低挥发酸度组合带来更高质量的红酒
-------
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+p1 <- ggplot(data = subset(redwine, grade != 'medium(5-6)'),
+       aes(x = volatile.acidity, y = alcohol,
+                      color = grade)) +
+  geom_point() +
+  ggtitle('Alcohol vs Volatile Acidity and Wine Quality') 
+
+p2 <- ggplot(data = subset(redwine, grade != 'medium(5-6)'),
+       aes(x = sulphates, y = alcohol,
+                      color = grade)) +
+  geom_point() +
+  ggtitle('Alcohol vs Sulphates and Wine Quality') 
+
+p3 <- ggplot(data = subset(redwine, grade != 'medium(5-6)'),
+       aes(x = citric.acid, y = alcohol,
+                      color = grade)) +
+  geom_point() +
+  ggtitle('Alcohol vs Citric Acid and Wine Quality') 
+
+
+grid.arrange(p1,p2,p3,ncol = 1)
+```
+
+从这张图就可以看出,挥发酸度、硫酸盐、柠檬酸和红酒质量的相关性在逐渐减弱，以至于无法直接定论柠檬酸成分的含量多少决定了红酒质量好坏。但也许是因为受到其他成分的影响柠檬酸的作用被覆盖了。这也许可以解释为什么预估线性模型的 R 值仅有 0.369。正是各种化学成分的特定组合带来了更好的红酒，而不仅仅是某几种成分就能决定。当然酒精和挥发酸度的影响不可忽视。
+
+
 
 # 复盘
 
@@ -567,4 +604,4 @@ ggplot(data = subset(redwine, grade != 'medium(5-6)'),
 
 - 用来分析的数据集缺少所有质量等级的数据且不平衡，有许多中等级的数据点（5、6），低等级（3、4）和高等级（7、8）的数据点数量都很少。如果数据集在低端和高端都有更多记录，则可以提高分析质量。我们可以更确定化学成分与葡萄酒质量之间是否存在显着的相关性。
 
-- 红酒质量的品鉴可能偏于主观，用线性模型来预测过于简化了，比如味道和香气这样细微的差别不能通过化学性质来判断。好的红酒应该是各种化学成分的完美组合。
+- 红酒质量的品鉴可能偏于主观，用线性模型来预测过于简化了，比如味道和香气这样细微的差别不能通过化学性质来判断。好的红酒应该是各种化学成分和品牌等附加值的完美组合。
