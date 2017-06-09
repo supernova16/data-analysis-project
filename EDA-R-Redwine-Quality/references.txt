@@ -1,1 +1,2 @@
-https://github.com/allanbreyes/udacity-data-science
+1. https://github.com/allanbreyes/udacity-data-science
+2. I also reference Lu Wang’s report，but I can’t find web url.I got it from her Google Drive share.

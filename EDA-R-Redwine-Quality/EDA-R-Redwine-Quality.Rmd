@@ -1,16 +1,24 @@
-红葡萄酒品质探索 by F
-========================================================
+---
+title: "红酒质量探索"
+author: "F"
+date: "2017.05.30"
+output: html_document
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
 
-本报告通过一个包含 1599 种红酒的数据集，来探讨红酒质量和红酒中各种化学性质的关系，并探索是什么带来了更高质量的红酒。
-```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
-# Load all of the packages that you end up using
-# in your analysis in this code chunk.
+### 报告背景
 
-# Notice that the parameter "echo" was set to FALSE for this code chunk.
-# This prevents the code from displaying in the knitted HTML output.
-# You should set echo=FALSE for all code chunks in your file.
+本报告探讨了红酒的质量和其各种化学性质的关系，并探索是什么带来了更高质量的红酒。报告所用的数据集由由 Paulo Cortez 等人创建，该数据集包含 13 个变量的 1599 个观察值。⾄少 3 名葡萄酒专家对每种酒的质量进⾏了评分，分数在 0（⾮常差）和
+10（⾮常好）之间，最小等级差为1。[了解更多数据集信息](https://s3.amazonaws.com/udacity-hosted-downloads/ud651/wineQualityInfo.txt)
 
+### 单位说明
+除了以百分比测量酒精成分外，测量化学成分的所有其他变量都以体积计。(mg/dm^3^ 或 g/dm^3^) 
 
+```{r  packages}
+# Load all of the packages that i end up using
+# install.packages("plotly")
 library(ggplot2)
 library(GGally)
 library(scales)
@@ -20,15 +28,13 @@ library(MASS)
 library(gridExtra)
 library(dplyr)
 library(reshape)
-library(GGally)
-
-
+library(plotly)
 
 ```
 
 
-```{r echo=FALSE,message=FALSE, warning=FALSE,Load_the_Data}
-# Load the Data 加载数据
+```{r Load_the_Data}
+# Load the Data 
 
 redwine <-  read.csv('wineQualityReds.csv')
 
@@ -39,7 +45,10 @@ redwine <-  read.csv('wineQualityReds.csv')
 
 # 数据概要
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, Summary_Stat}
+```{r Summary_Stat}
+
+# the summary of the data
+
 dim(redwine)
 str(redwine)
 summary(redwine)
@@ -52,139 +61,193 @@ summary(redwine)
 
 - 其中 `X` 为唯一标识符
 
-- 根据背景资料得知，`quality` 是对应红酒质量的变量。⾄少 3 名葡萄酒专家对每种酒的质量进⾏了评分，分数在 0（⾮常差）和
-10（⾮常好）之间，最小等级差为1。数据集中的红酒质量等级的范围是 3-8，中位数是 6。
+- 根据背景资料得知，`quality` 是对应红酒质量的变量。数据集中的红酒质量等级的范围是 3-8，中位数是 6。
 
 - 有关红酒化学性质的变量为 11 个，它们分别是：`fixed.acidity` 固定酸度、`volatile.acidity` 挥发酸度、`citric.acid` 柠檬酸，`residual.sugar` 残糖量，`chlorides` 氯化物，`free.sulfur.dioxide` 游离二氧化硫、`total.sufur.dioxide` 总二氧化硫，`density` 密度，`pH` PH 值，`sulphates` 硫酸盐，`alcohol` 酒精。
 
 
 # 单变量图
 
-对 12 个单变量进行绘图，快速了解数据分布
+对 12 个单变量进行绘图，快速了解数据分布，也有助于引导分析。
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots}
-p1 <- ggplot(aes(x = fixed.acidity), data = redwine) +
-  geom_histogram(color='black', fill='green')
 
-p2 <- ggplot(aes(x = volatile.acidity), data = redwine) +
-  geom_histogram(color='black', fill='green')
+# creat a function to draw univariate histgrtam 
 
-p3 <- ggplot(aes(x = citric.acid), data = redwine) +
-  geom_histogram(color='black', fill='green')
+univ_cont <- function(feature) {
+    ggplot(data=redwine, aes_string(x = feature)) + geom_histogram(color = 'black',fill = 'gray') 
+}
 
-p4 <- ggplot(aes(x = residual.sugar), data = redwine) +
-  geom_histogram(color='black', fill='green')
 
-p5 <- ggplot(aes(x = chlorides), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p6 <- ggplot(aes(x = free.sulfur.dioxide), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p7 <- ggplot(aes(x = total.sulfur.dioxide), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p8 <- ggplot(aes(x = density), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p9 <- ggplot(aes(x = pH), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p10 <- ggplot(aes(x = sulphates), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p11 <- ggplot(aes(x = alcohol), data = redwine) +
-  geom_histogram(color='black', fill='green')
-
-p12 <- ggplot(aes(x = quality), data = redwine) + 
-  geom_histogram(color='black', fill='red') 
-
-grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12, ncol=4)
-
+grid.arrange(univ_cont('fixed.acidity'),
+             univ_cont('volatile.acidity'),
+             univ_cont('citric.acid'),
+             univ_cont('residual.sugar'),
+             univ_cont('chlorides'),
+             univ_cont('free.sulfur.dioxide'),
+             univ_cont('total.sulfur.dioxide'),
+             univ_cont('density'),
+             univ_cont('pH'),
+             univ_cont('sulphates'),
+             univ_cont('alcohol'),
+             univ_cont('quality'),
+             ncol = 4)
 
 ```
 
-# 单变量分析
+接下来依次分析单个变量
 
-### 红酒质量
-
-红酒质量是我们要探索的因变量，我们先对它进行分析。红酒质量的分布比较接近正态分布，没有 0，1，2，9，10 等级的红酒，大多数红酒处于等级 5 和等级 6，较少数红酒处于等级 3，4，8。
-
-根据观察结果，对等级进行分类，低（等级 0-4），中（等级 5-6），高（等级 7-10）
+### 质量
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, Quality }
+红酒质量是我们要探索的因变量，首先对它进行分析。
+
+```{r quality}
+ ggplot(aes(x = quality), data = redwine) +
+  geom_bar()
+```
+
+红酒质量的分布比较接近正态分布，这里有个问题，就是数据集种缺少 0，1，2，9，10 等级的红酒数据，这可能会给我们的分析带来影响。
+
+大多数红酒质量处于 5 和 6 ，为了更好区分红酒的质量，创建一个新变量`grade`对质量进行等级划分，低（等级 0-4），中（等级 5-6），高（等级 7-10）。这在之后的分析中将会用到。
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, factor_grade }
+
+# create a new variable grade
 
 redwine$grade <- ifelse(redwine$quality < 5, 'low(0-4)', 
                         ifelse(redwine$quality < 7, 'medium(5-6)', 'high(7-10)'))
 redwine$grade <- factor(redwine$grade,
                      levels = c('low(0-4)', 'medium(5-6)', 'high(7-10)'), ordered = T)
 
-table(redwine$grade)
-
 ggplot(aes(x = quality,fill = grade), data = redwine) +
-  geom_histogram()
+  geom_bar()
   
 ```
 
-低、中、高质量等级的红酒数量依次是63、1319、217。
-
-### 化学性质的分布和异常值
-
-观察化学性质变量的分布：
-
-- 接近正态分布：密度、PH
-- 正偏斜分布：挥发酸度，固定酸度, 柠檬酸, 游离二氧化硫, 总二氧化硫, 硫酸盐, 酒精
-- 长尾分布：残糖量, 氯化物
-
-可能存在的异常：
-
-- 柠檬酸有大量的 0 值
-- 残糖量和氯化物存在异常值
-
-
-取 挥发酸度、固定酸度、柠檬酸 的 log10 值
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-ggplot(data = redwine,
-       aes(x = fixed.acidity)) +
-  geom_histogram(color='black', fill='green') +
-  scale_x_log10() +
-  xlab("log of fixed.acidity ")
-
-ggplot(data = redwine,
-       aes(x = volatile.acidity)) +
-  geom_histogram(color='black', fill='green') +
-  scale_x_log10() +
-  xlab("log of volatile.acidity ")
-
-ggplot(data = redwine,
-       aes(x = citric.acid)) +
-  geom_histogram(color='black', fill='green') +
-  scale_x_log10() +
-  xlab("log of citric.acid ")
+```{r}
+table(redwine$grade)
 ```
 
-除了柠檬酸存在 0 值影响分布，可以看到进行 log 处理后数据更接近正态分布。
+
+分级后，低、中、高质量等级的红酒数量依次是 63、1319、217。
+
+
+### 酸有关变量
+
+在概览图中观察到固定酸度、挥发酸度、柠檬酸度都存在偏斜，对它们进行 log10 转换以更好观察数据分布。PH 的分布接近正态分布不用处理。
+
+```{r acids}
+#1og10 transform
+
+grid.arrange(univ_cont('fixed.acidity'),
+             univ_cont('log10(fixed.acidity)'),
+             univ_cont('volatile.acidity'),
+             univ_cont('log10(volatile.acidity)'),
+             univ_cont('citric.acid'),
+             univ_cont('log10(citric.acid)'),
+             univ_cont('pH'),
+             ncol = 2)
+```
+
+```{r}
+summary(redwine$fixed.acidity)
+summary(redwine$volatile.acidity)
+summary(redwine$citric.acid)
+summary(redwine$pH)
+
+```
+
+
+- 固定酸度：大多数红酒的固定酸度为 7.5 g/dm^3^。固定酸度中位数为 7.9，平均值为 8.32。有几个特别高的异常值。
+- 挥发酸度：挥发酸度实际上就是在品尝红酒时“酸”的味觉感受来源，根据经验，这对红酒质量的影响是不利的。
+挥发酸度中位数为 0.52 g/dm^3^，平均值为 0.5278 g/dm^3^
+- 柠檬酸：中位数为 0.26g/dm^3^，平均值为 0.271 g/dm^3^，可以观察到存在着许多 0 值。
+- PH：中位 pH 值为 3.31，平均 pH 值为 3.371。
+
+### 残余糖量
+
+```{r residual_sugar}
+
+
+grid.arrange(univ_cont('residual.sugar'),
+             univ_cont('log10(residual.sugar)'), 
+             ncol = 2)
+             
+```
+
+根据数据集背景资料得知，残糖量就是在进行发酵后产生的糖。在数据集中，平均残糖量为 2.539 g/dm^3^ ，中位数为 2.2。残糖量的分布存在比较明显的长尾，进行 log10 变换后分布更好些。根据经验，红酒的甜味也能带来好的口感，但过分的甜味可能导致红酒的质量变差。
+
+### 氯化物
+```{r cholrides}
+
+grid.arrange(univ_cont('chlorides'),
+             univ_cont('log10(chlorides)'),
+             ncol = 2)
+```
+
+氯化物实际上是红酒中盐的成分，同样存在严重的长尾，根据观察可以有一个猜测，高氯化物含量意味着品质差的红酒。
+
+### 二氧化硫
+
+总二氧化硫包括了游离的二氧化硫，因此将它们绘制在一起,并进行 log10 转换。
+
+```{r sulfur_dioxide}
+
+grid.arrange(univ_cont('free.sulfur.dioxide'),
+             univ_cont('log10(free.sulfur.dioxide)'),
+             univ_cont('total.sulfur.dioxide'),
+             univ_cont('log10(total.sulfur.dioxide)'),
+             ncol = 2)
+
+```
+
+游离二氧化硫的中位数为 14mg/dm^3^，平均值为 15.87mg/dm^3^。根据经验，游离二氧化硫带给我们刺鼻的嗅觉反馈，所以可以预测二氧化硫含量高的红酒品质比较差。
+
+总二氧化硫的平均值为 46.47mg/dm^3^，中位数为38mg/dm^3^。
+
+### 硫酸盐
+
+硫酸盐也存在着一定的正偏斜，同样进行 log10 转换。
+
+```{r sulphates}
+
+grid.arrange(univ_cont('sulphates'),
+             univ_cont('log10(sulphates)'),
+             ncol = 2)
+
+
+```
+
+大多数葡萄酒含有 0.2-0.8g/dm^3^ 的硫酸盐,中位数为 0.62g/dm^3^，平均量为0.6581g/dm^3^。硫酸盐能够帮助红酒储存更长的时间。
+
+### 密度
+
+```{r density}
+univ_cont('density')
+
+```
+
+可以看到，密度的分布非常“好”，红酒的密度大部分取决于糖和酒精的含量。密度中位数为 0.9968g/dm^3^ ，平均值为 0.9978g/dm^3^。
+
+### 酒精
+
+```{r alcohol}
+
+univ_cont('alcohol')
+
+```
+酒精对于红酒来说应该是相当重要的一个组成部分，数据集中平均酒精含量为10.42％，中位数为10.2％。
+
+# 单变量分析
 
 ### 数据集结构
 
-数据集中包含 1599 种红酒的观察值，12 个变量
-
-- 要探索的因变量是红酒质量，而其他 11 个变量是预测变量。
-- 大部分的红酒的质量等级为 5 或 6。
-- 有一部分红酒中柠檬酸为 0 ，其余的红酒中柠檬酸的含量少于 0.75。
-- 大多数红酒的残留糖量在 1~3.5 间。
-- 大多数红酒的氯化物含量在 0.03~0.125 间。
-- 50％的红葡萄酒的密度约为 0.996，最大密度为1.004。
-- 大多数红酒的 PH 值在 3~3.5 间。
-- 酒精的平均值为 10.42％，最大值 为14.9。
-- 硫酸盐的最大值为 2,最小值为 0.33。
-
+数据集中包含 1599 种红酒的观察值，12 个变量。其中包括 1 个因变量（质量）和 11 个自变量。
 
 ### 数据集中的主要特征
 
-基于上面的数据，初步认为红酒质量可能受 柠檬酸、挥发性酸 的影响比较大。
+初步认为红酒质量可能受 酒精、挥发性酸 的影响比较大。
 
 
 ### 数据集中还有哪些其他功能可以帮助您调查您的兴趣特征？
@@ -197,23 +260,28 @@ ggplot(data = redwine,
 
 ### 是否有不寻常的分布？您是否对数据执行任何操作以整理，调整或更改数据的形式？如果是这样，你为什么这么做？
 
-存在一些偏斜分布和长尾分布,对数据进行了 log 处理来初步探索，需要在之后进行更深入分析时才能判断什么样的处理是有效的。
+存在一些偏斜分布和长尾分布,对数据进行了 log10 转换处理来初步探索，需要在之后进行更深入分析时才能判断什么样的处理是有效的。
 
 
 
 # 双变量图与双变量分析
 
-绘制相关系数矩阵和散点图矩阵来了解红酒中化学性质与质量，及各变量之间的关系
+绘制散点图矩阵来了解红酒中化学性质与质量，及各变量之间的关系
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Cor}
-cor(redwine[2:13])
+# cor(redwine[2:13]) 
+# creat a correlation matrix，i will use a scatterplot matrix replace it.
 ```
 
 ```{r echo=FALSE, message= FALSE,warning=FALSE, Scatterplot_Matrix}
 
-ggpairs(redwine[2:14], warp = c(shape = I('.'), outlier.shape = I('.')))
+
+ggpairs(redwine[2:13],
+        lower = list(continuous = wrap("points", shape = I('.'))),
+        upper = list(continuous = wrap("cor", size = 2.5)))
 
 ```
+
 
 可以得知，和红酒质量最相关的 4 个因素是：
 
@@ -239,8 +307,7 @@ ggplot(aes(x = alcohol, y = quality), data = redwine) +
 ```{r echo=FALSE, message=FALSE, warning=FALSE }
 
 ggplot(aes(x = alcohol, y = quality), data = redwine) +
-  geom_point(alpha = 1/5, position = 'jitter') +
-  geom_smooth(color = 'green') +
+  geom_point(alpha = 1/5, position = 'jitter')  +
   stat_smooth(method = 'lm')
   
  
@@ -248,10 +315,12 @@ ggplot(aes(x = alcohol, y = quality), data = redwine) +
 ```
 
 
-酒精和红酒质量呈现线性关系
-
+将`quality`通过 factor 转换成分类变量(因为质量系数都是整数)，这样更容易观察。并且转换为分类变量之后绘制箱线图可以体现出比散点图更加丰富的信息。
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Converts the quality variable to a factor
+
 ggplot(aes(x = factor(quality), y = alcohol), data = redwine) +
   geom_boxplot() +
   geom_line(aes(group = 1, color = 'mean'),stat = 'summary', fun.y = mean)
@@ -259,9 +328,11 @@ ggplot(aes(x = factor(quality), y = alcohol), data = redwine) +
 
 观察每个质量等级红酒的平均酒精含量，总体上也呈现线性趋势，最高质量的红酒有着最高的酒精含量
 
+
 加入`grade`来观察分布
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+
 ggplot(aes(x = alcohol, fill = grade ),data = redwine) +
        geom_histogram(binwidth = .5, alpha = .5, position = "identity")
   
@@ -271,12 +342,12 @@ ggplot(aes(x = alcohol, fill = grade ),data = redwine) +
 
 ### 挥发酸度 vs 质量
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+
 grid.arrange(
   ggplot(aes(x = volatile.acidity, y = quality), data = redwine) +
     geom_point(alpha = 1/5),
   ggplot(aes(x = volatile.acidity , y = quality), data = redwine) +
     geom_point(alpha = 1/5, position = 'jitter') +
-    geom_smooth(color = 'green') +
     stat_smooth(method = 'lm'),
   ggplot(aes(x = factor(quality), y = volatile.acidity), data = redwine) +
     geom_boxplot() +
@@ -297,8 +368,7 @@ grid.arrange(
   ggplot(aes(x = sulphates, y = quality), data = redwine) +
     geom_point(alpha = 1/5),
   ggplot(aes(x = sulphates , y = quality), data = redwine) +
-    geom_point(alpha = 1/5, position = 'jitter') +
-    geom_smooth(color = 'green') +
+    geom_point(alpha = 1/5, position = 'jitter')  +
     stat_smooth(method = 'lm'),
   ggplot(aes(x = factor(quality), y = sulphates), data = redwine) +
     geom_boxplot() +
@@ -317,8 +387,7 @@ grid.arrange(
   ggplot(aes(x = log10(sulphates), y = quality), data = redwine) +
     geom_point(alpha = 1/5),
   ggplot(aes(x = log10(sulphates) , y = quality), data = redwine) +
-    geom_point(alpha = 1/5, position = 'jitter') +
-    geom_smooth(color = 'green') +
+    geom_point(alpha = 1/5, position = 'jitter')  +
     stat_smooth(method = 'lm'),
   ggplot(aes(x = factor(quality), y = log10(sulphates)), data = redwine) +
     geom_boxplot() +
@@ -345,8 +414,7 @@ grid.arrange(
   ggplot(aes(x = citric.acid, y = quality), data = redwine) +
     geom_point(alpha = 1/5),
   ggplot(aes(x = citric.acid , y = quality), data = redwine) +
-    geom_point(alpha = 1/5, position = 'jitter') +
-    geom_smooth(color = 'green') +
+    geom_point(alpha = 1/5, position = 'jitter')  +
     stat_smooth(method = 'lm'),
   ggplot(aes(x = factor(quality), y = citric.acid), data = redwine) +
     geom_boxplot() +
@@ -502,72 +570,9 @@ redwine_quality = 5.819 + 0.29*alcohol - 1.061*volatile.acidity + 1.864*log10(su
 虽然 R-squared 只有 0.369，不是一个很准确的预测模型。主要的原因可能是数据集中数据有限，且采用评分的来衡量红酒质量也有很大的限制。
 
 
-
-
-# 总结
-
-
-### 总结一：酒精对红酒质量的影响
-
-通过相关系数计算，得出酒精含量对红酒质量的影响最大
-
-```{r echo=FALSE, Plot_One}
-
-ggplot(aes(factor(quality), alcohol, color = grade), 
-        data = redwine) +
-  geom_jitter( alpha = 1/2) +
-  geom_boxplot( alpha =1/2 ,color = '#666666')+
-  stat_summary(fun.y = "mean", geom="line",aes( group=1), color = 'red', size = 1)+
-      ggtitle("Alcohol vs Quality")
-
-
-```
-
-酒精和红酒质量正相关，高质量的红酒有着更高的酒精含量。
-
-
-
-### 总结二：影响红酒质量的主要因素
-```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
-
-p1<-
-ggplot(aes(x = volatile.acidity, y = alcohol), data = redwine) +
-      geom_point(aes(color =  grade),size=2)+
-      xlab("volatile acidity") + ylab("alcohol") +
-      ggtitle("Volatile acidity and Alcohol")
-
-p2<-
-ggplot(aes(x = log(sulphates), y = citric.acid), data = redwine) +
-      geom_point(aes(color =  grade),size=2)+
-      xlab("log of sulphates") + ylab("citric acid") +
-      ggtitle("Citric Acid and Sulphates")
-
-grid.arrange(p1,p2,ncol=1)
-
-
-```
-
-高质量的红酒倾向于具有较高的酒精含量和较低的挥发酸度含量，同时，也倾向于具有较高的硫酸盐和较高的柠檬酸含量。
-
-
-
-### 总结三：更好的红酒
+### 尝试探讨 R 值低的原因
 
 取`grade`中的两端等级来作图
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-
-ggplot(data = subset(redwine, grade != 'medium(5-6)'),
-       aes(x = volatile.acidity, y = alcohol,
-                      color = grade)) +
-  geom_point() +
-  ggtitle('Alcohol vs Volatile Acidity and Wine Quality') 
-```
-
-
-这张图可以明显地看出高酒精含量和低挥发酸度组合带来更高质量的红酒
-
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -596,12 +601,95 @@ grid.arrange(p1,p2,p3,ncol = 1)
 从这张图就可以看出,挥发酸度、硫酸盐、柠檬酸和红酒质量的相关性在逐渐减弱，以至于无法直接定论柠檬酸成分的含量多少决定了红酒质量好坏。但也许是因为受到其他成分的影响柠檬酸的作用被覆盖了。这也许可以解释为什么预估线性模型的 R 值仅有 0.369。正是各种化学成分的特定组合带来了更好的红酒，而不仅仅是某几种成分就能决定。当然酒精和挥发酸度的影响不可忽视。
 
 
+# 总结
+
+
+### 总结一：酒精对红酒质量的影响
+
+通过相关系数计算，得出酒精含量对红酒质量的影响最大
+
+```{r echo=FALSE, Plot_One}
+
+ggplot(aes(factor(quality), alcohol, color = grade), 
+        data = redwine) +
+  geom_jitter( alpha = 1/2) +
+  geom_boxplot( alpha =1/2 ,color = '#666666')+
+  stat_summary(fun.y = "mean", geom="line",aes( group=1), color = 'red', size = 1)+
+      ggtitle("Alcohol vs Quality")+
+  xlab('Quality') + ylab('Alcohol (% by vol.)')
+
+
+```
+
+酒精和红酒质量正相关，高质量的红酒有着更高的酒精含量。
+
+
+
+### 总结二：影响红酒质量的主要因素
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+
+p1<-
+ggplot(aes(x = volatile.acidity, y = alcohol), data = redwine) +
+      geom_point(aes(color =  grade),size=2, alpha = 1/2)+
+      xlab("Volatile Acidity (g/dm^3)") + ylab("Alcohol (% by vol.)") +
+      ggtitle("Volatile Acidity and Alcohol")
+
+p2<-
+ggplot(aes(x = log(sulphates), y = citric.acid), data = redwine) +
+      geom_point(aes(color =  grade),size=2,alpha = 1/2)+
+      xlab("Sulphates (g/dm^3)") + ylab("Citric Acid (g/dm^3)") +
+      ggtitle("Citric Acid and Sulphates")
+
+grid.arrange(p1,p2,ncol=1)
+
+
+```
+
+高质量的红酒倾向于具有较高的酒精含量和较低的挥发酸度含量，同时，也倾向于具有较高的硫酸盐和较高的柠檬酸含量。
+
+
+### 总结三：关键变量的 3D 图
+
+```{r 3d}
+
+plot_ly(
+  data = redwine, type = "scatter3d", mode = "markers",
+  x = ~alcohol, y = ~volatile.acidity, z = ~sulphates,
+  color = ~factor(quality), opacity = 0.75,
+  text = ~paste("Quality: ", quality),
+  marker = list(size=3)
+) %>%
+  layout(
+    title = "Alcohol vs Volatile Acidity vs Sulphates",
+    scene = list(
+      xaxis = list(title="Alcohol (% by vol.)"),
+      yaxis = list(title="Volatile Acidity (g/dm^3)"),
+      zaxis = list(title="Sulphates (g/dm^3)")
+    )
+  )
+```
+
+双击右侧图例，可以筛选观察各个质量等级的红酒，在酒精、硫酸盐、挥发酸度这三个变量影响下的分布。
 
 # 复盘
 
+### 挫折和挑战
 
 - 因变量（红酒质量）与自变量之间没有强相关性，每个质量水平有异常值可能影响分析。
 
 - 用来分析的数据集缺少所有质量等级的数据且不平衡，有许多中等级的数据点（5、6），低等级（3、4）和高等级（7、8）的数据点数量都很少。如果数据集在低端和高端都有更多记录，则可以提高分析质量。我们可以更确定化学成分与葡萄酒质量之间是否存在显着的相关性。
 
 - 红酒质量的品鉴可能偏于主观，用线性模型来预测过于简化了，比如味道和香气这样细微的差别不能通过化学性质来判断。好的红酒应该是各种化学成分和品牌等附加值的完美组合。
+
+### 一点进步
+
+在总结部分，使用了 plotly 包来进行 3D 绘图展现 4 个变量间的关系，同时还提供了交互的可视化，在之后的数据分析中，应该会经常用到这个包。
+
+
+### 后续分析建议
+
+- 扩大数据集。一方面是添加更多的观测值，另一方面则是完善各个质量等级红酒的数据。
+- 对红酒质量的描述更精确，比如评分更细化或采用更不受主观意识影响的评定机制。虽然专家都是专业的红酒品鉴师，但还是过于个人和主观了
+- 添加品牌、年份等非化学性质变量，这样数据集可能会变得更有趣些，进行另一个方向上的探讨。
+
+
