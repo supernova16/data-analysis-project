@@ -1,191 +1,199 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import xml.etree.cElementTree as ET
-import pprint
-import re
+
+import csv
 import codecs
-import json
-"""
-Your task is to wrangle the data and transform the shape of the data
-into the model we mentioned earlier. The output should be a list of dictionaries
-that look like this:
+import re
+import xml.etree.cElementTree as ET
+from audit import *
 
-{
-"id": "2406124091",
-"type: "node",
-"visible":"true",
-"created": {
-          "version":"2",
-          "changeset":"17206049",
-          "timestamp":"2013-08-03T16:43:42Z",
-          "user":"linuxUser16",
-          "uid":"1219059"
-        },
-"pos": [41.9757030, -87.6921867],
-"address": {
-          "housenumber": "5157",
-          "postcode": "60625",
-          "street": "North Lincoln Ave"
-        },
-"amenity": "restaurant",
-"cuisine": "mexican",
-"name": "La Cabana De Don Luis",
-"phone": "1 (773)-271-5176"
-}
+import cerberus
 
-You have to complete the function 'shape_element'.
-We have provided a function that will parse the map file, and call the function with the element
-as an argument. You should return a dictionary, containing the shaped data for that element.
-We have also provided a way to save the data in a file, so that you could use
-mongoimport later on to import the shaped data into MongoDB. 
+import schema
 
-Note that in this exercise we do not use the 'update street name' procedures
-you worked on in the previous exercise. If you are using this code in your final
-project, you are strongly encouraged to use the code from previous exercise to 
-update the street names before you save them to JSON. 
+OSM_PATH = “example.osm"
 
-In particular the following things should be done:
-- you should process only 2 types of top level tags: "node" and "way"
-- all attributes of "node" and "way" should be turned into regular key/value pairs, except:
-    - attributes in the CREATED array should be added under a key "created"
-    - attributes for latitude and longitude should be added to a "pos" array,
-      for use in geospacial indexing. Make sure the values inside "pos" array are floats
-      and not strings. 
-- if the second level tag "k" value contains problematic characters, it should be ignored
-- if the second level tag "k" value starts with "addr:", it should be added to a dictionary "address"
-- if the second level tag "k" value does not start with "addr:", but contains ":", you can
-  process it in a way that you feel is best. For example, you might split it into a two-level
-  dictionary like with "addr:", or otherwise convert the ":" to create a valid key.
-- if there is a second ":" that separates the type/direction of a street,
-  the tag should be ignored, for example:
+NODES_PATH = "nodes.csv"
+NODE_TAGS_PATH = "nodes_tags.csv"
+WAYS_PATH = "ways.csv"
+WAY_NODES_PATH = "ways_nodes.csv"
+WAY_TAGS_PATH = "ways_tags.csv"
 
-<tag k="addr:housenumber" v="5158"/>
-<tag k="addr:street" v="North Lincoln Avenue"/>
-<tag k="addr:street:name" v="Lincoln"/>
-<tag k="addr:street:prefix" v="North"/>
-<tag k="addr:street:type" v="Avenue"/>
-<tag k="amenity" v="pharmacy"/>
+LOWER_COLON = re.compile(r'^([a-z]|_)+:([a-z]|_)+')
+PROBLEMCHARS = re.compile(r'[=\+/&<>;\'"\?%#$@\,\. \t\r\n]')
 
-  should be turned into:
+SCHEMA = schema.schema
 
-{...
-"address": {
-    "housenumber": 5158,
-    "street": "North Lincoln Avenue"
-}
-"amenity": "pharmacy",
-...
-}
-
-- for "way" specifically:
-
-  <nd ref="305896090"/>
-  <nd ref="1719825889"/>
-
-should be turned into
-"node_refs": ["305896090", "1719825889"]
-"""
+# Make sure the fields order in the csvs matches the column order in the sql table schema
+NODE_FIELDS = ['id', 'lat', 'lon', 'user', 'uid', 'version', 'changeset', 'timestamp']
+NODE_TAGS_FIELDS = ['id', 'key', 'value', 'type']
+WAY_FIELDS = ['id', 'user', 'uid', 'version', 'changeset', 'timestamp']
+WAY_TAGS_FIELDS = ['id', 'key', 'value', 'type']
+WAY_NODES_FIELDS = ['id', 'node_id', 'position']
 
 
-lower = re.compile(r'^([a-z]|_)*$')
-lower_colon = re.compile(r'^([a-z]|_)*:([a-z]|_)*$')
-problemchars = re.compile(r'[=\+/&<>;\'"\?%#$@\,\. \t\r\n]')
+def shape_element(element, node_attr_fields=NODE_FIELDS, way_attr_fields=WAY_FIELDS,
+                  problem_chars=PROBLEMCHARS, default_tag_type='regular'):
+    """Clean and shape node or way XML element to Python dict"""
 
-CREATED = [ "version", "changeset", "timestamp", "user", "uid"]
+    node_attribs = {}
+    way_attribs = {}
+    way_nodes = []
+    tags = []  # Handle secondary tags the same way for both node and way elements
 
-
-
-def shape_element(element):
-    node = {}
-    if element.tag == "node" or element.tag == "way" :
-        # Geo Data
-        lat_lon_array = [0,0]
-        has_pos = False
-        created_dict = {}
-        node['type'] = element.tag
-        for key,value in element.attrib.iteritems():
-            if key in CREATED:
-                created_dict[key] = value
-            elif key in ['lat','lon']:
-                has_pos = True
-                if key == 'lat':
-                    lat_lon_array[0] = float(value)
-                else:
-                    lat_lon_array[1] = float(value)
-            else:
-                node[key] = value
-        address = {}
-        has_address = False
-        for tag in element.iter('tag'):
-            if problemchars.search(tag.get('k')) is not None or len(tag.get('k').split(":"))>2:
+    # YOUR CODE HERE
+    if element.tag == 'node':
+        for item in element.attrib:
+            if item in NODE_FIELDS:
+                node_attribs[item] = element.attrib[item]
+        for child in element:
+            node_tag = {}
+            if PROBLEMCHARS.match(child.attrib['k']):
                 continue
-            elif 'addr:' in tag.get('k'):
-                has_address = True
-                addr_list = tag.get('k').split(":")
-                address[addr_list[1]] = tag.get('v')
+            elif LOWER_COLON.match(child.attrib['k']):
+                node_tag["type"] = child.attrib["k"].split(":",2)[0]
+                node_tag["key"] = child.attrib["k"].split(":",2)[1]
+                node_tag["id"] = element.attrib["id"]
+                node_tag["value"] = child.attrib["v"]
+                tags.append(node_tag)
             else:
-                node[tag.get('k')] = tag.get('v')
-        
-        node_refs = []
-        has_node_refs = False
-        for tag in element.iter('nd'):
-            has_node_refs = True
-            node_refs.append(tag.get('ref'))
-        if has_node_refs:
-            node['node_refs'] = node_refs
-        node['created'] = created_dict
-        if has_pos:
-            node['pos'] = lat_lon_array
-        if has_address:
-            node['address'] = address
-        return node
-    else:
-        return None
+                node_tag["type"] = "regular"
+                node_tag["key"] = child.attrib["k"]
+                node_tag["id"] = element.attrib["id"]
+                node_tag["value"] = child.attrib["v"]
+                tags.append(node_tag)
 
 
+        if node_attribs:
+            return {'node': node_attribs, 'node_tags': tags}
+        else:
+            return none
 
-def process_map(file_in, pretty = False):
-    # You do not need to change this file
-    file_out = "{0}.json".format(file_in)
-    data = []
-    with codecs.open(file_out, "w") as fo:
-        for _, element in ET.iterparse(file_in):
+
+    elif element.tag == 'way':
+        for item in element.attrib:
+            if item in WAY_FIELDS:
+                way_attribs[item] = element.attrib[item]
+        count = 0
+        for child in element:
+            if child.tag == "nd":
+                way_node_dict = {}
+                way_node_dict['id'] = element.attrib['id']
+                if child.get('ref'):
+                    way_node_dict["node_id"] = child.attrib['ref']
+                    way_node_dict['position'] = count
+                    count += 1
+                way_nodes.append(way_node_dict)
+            if child.tag == "tag":
+                child.attrib['v'] = update_name(child.attrib['v'], mapping)
+                way_tags = {}
+                way_tags["id"] = element.attrib["id"]
+                way_tags["value"] = child.attrib["v"]
+                if PROBLEMCHARS.match(child.attrib['k']):
+                    continue
+                elif LOWER_COLON.match(child.attrib['k']):
+                    if len(child.attrib['k'].split(":")) == 2:
+                        way_tags["key"] = child.attrib["k"].split(":",2)[1]
+                        way_tags["type"] = child.attrib["k"].split(":",2)[0]
+                    elif len(child.attrib['k'].split(":")) == 3:
+                        way_tags["key"] = child.attrib["k"].split(":",2)[1] + ":" + child.attrib["k"].split(":",2)[2]
+                        way_tags["type"] = child.attrib["k"].split(":",2)[0]
+
+                else:
+                    way_tags["type"] = "regular"
+                    way_tags["key"] = child.attrib["k"]
+                    tags.append(way_tags)
+
+        if way_attribs:
+            return {'way': way_attribs, 'way_nodes': way_nodes, 'way_tags': tags}
+        else:
+            return none
+
+
+# ================================================== #
+#               Helper Functions                     #
+# ================================================== #
+def get_element(osm_file, tags=('node', 'way', 'relation')):
+    """Yield element if it is the right type of tag"""
+
+    context = ET.iterparse(osm_file, events=('start', 'end'))
+    _, root = next(context)
+    for event, elem in context:
+        if event == 'end' and elem.tag in tags:
+            yield elem
+            root.clear()
+
+
+def validate_element(element, validator, schema=SCHEMA):
+    """Raise ValidationError if element does not match schema"""
+    if validator.validate(element, schema) is not True:
+        field, errors = next(validator.errors.iteritems())
+        message_string = "\nElement of type '{0}' has the following errors:\n{1}"
+        error_strings = (
+            "{0}: {1}".format(k, v if isinstance(v, str) else ", ".join(v))
+            for k, v in errors.iteritems()
+        )
+        raise cerberus.ValidationError(
+            message_string.format(field, "\n".join(error_strings))
+        )
+
+
+class UnicodeDictWriter(csv.DictWriter, object):
+    """Extend csv.DictWriter to handle Unicode input"""
+
+    def writerow(self, row):
+        super(UnicodeDictWriter, self).writerow({
+            k: (v.encode('utf-8') if isinstance(v, unicode) else v) for k, v in row.iteritems()
+        })
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+
+# ================================================== #
+#               Main Function                        #
+# ================================================== #
+def process_map(file_in, validate):
+    """Iteratively process each XML element and write to csv(s)"""
+
+    with codecs.open(NODES_PATH, 'w') as nodes_file, \
+         codecs.open(NODE_TAGS_PATH, 'w') as nodes_tags_file, \
+         codecs.open(WAYS_PATH, 'w') as ways_file, \
+         codecs.open(WAY_NODES_PATH, 'w') as way_nodes_file, \
+         codecs.open(WAY_TAGS_PATH, 'w') as way_tags_file:
+
+        nodes_writer = UnicodeDictWriter(nodes_file, NODE_FIELDS)
+        node_tags_writer = UnicodeDictWriter(nodes_tags_file, NODE_TAGS_FIELDS)
+        ways_writer = UnicodeDictWriter(ways_file, WAY_FIELDS)
+        way_nodes_writer = UnicodeDictWriter(way_nodes_file, WAY_NODES_FIELDS)
+        way_tags_writer = UnicodeDictWriter(way_tags_file, WAY_TAGS_FIELDS)
+
+        nodes_writer.writeheader()
+        node_tags_writer.writeheader()
+        ways_writer.writeheader()
+        way_nodes_writer.writeheader()
+        way_tags_writer.writeheader()
+
+        validator = cerberus.Validator()
+
+        for element in get_element(file_in, tags=('node', 'way')):
             el = shape_element(element)
             if el:
-                data.append(el)
-                if pretty:
-                    fo.write(json.dumps(el, indent=2)+"\n")
-                else:
-                    fo.write(json.dumps(el) + "\n")
-    return data
+                if validate is True:
+                    validate_element(el, validator)
 
-def test():
-    # NOTE: if you are running this code on your computer, with a larger dataset, 
-    # call the process_map procedure with pretty=False. The pretty=True option adds 
-    # additional spaces to the output, making it significantly larger.
-    data = process_map('example.osm', True)
-    #pprint.pprint(data)
-    
-    correct_first_elem = {
-        "id": "261114295", 
-        "visible": "true", 
-        "type": "node", 
-        "pos": [41.9730791, -87.6866303], 
-        "created": {
-            "changeset": "11129782", 
-            "user": "bbmiller", 
-            "version": "7", 
-            "uid": "451048", 
-            "timestamp": "2012-03-28T18:31:23Z"
-        }
-    }
-    assert data[0] == correct_first_elem
-    assert data[-1]["address"] == {
-                                    "street": "West Lexington St.", 
-                                    "housenumber": "1412"
-                                      }
-    assert data[-1]["node_refs"] == [ "2199822281", "2199822390",  "2199822392", "2199822369", 
-                                    "2199822370", "2199822284", "2199822281"]
+                if element.tag == 'node':
+                    nodes_writer.writerow(el['node'])
+                    node_tags_writer.writerows(el['node_tags'])
+                elif element.tag == 'way':
+                    ways_writer.writerow(el['way'])
+                    way_nodes_writer.writerows(el['way_nodes'])
+                    way_tags_writer.writerows(el['way_tags'])
 
-if __name__ == "__main__":
-    test()
+
+
+if __name__ == '__main__':
+    # Note: Validation is ~ 10X slower. For the project consider using a small
+    # sample of the map when validating.
+    process_map(OSM_PATH, validate=False)
